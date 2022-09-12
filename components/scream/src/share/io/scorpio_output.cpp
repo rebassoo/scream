@@ -69,6 +69,31 @@ AtmosphereOutput (const ekat::Comm& comm, const ekat::ParameterList& params,
       const auto& pl = f_pl.sublist(grid_name);
       m_fields_names = pl.get<vos_t>("Field Names");
 
+      //Put code here for vertical interpolation 
+      if (pl.isParameter("IO vertical interpolation")){
+	std::string filename = pl.get<std::string>("IO vertical interpolation");
+	is_vertical_interp = true;
+        auto npacks_tgt = ekat::PackInfo<Spack::n>::num_packs(num_layers_tgt);
+        p_tgt = view_1d<Spack>("",866,npacks_tgt);
+        auto p_tgt_s = Kokkos::create_mirror_view(ekat::scalarize(p_tgt));
+
+        std::string line;
+	std::ifstream press_levels (filename);
+	int it=0;
+	if (press_levels.is_open()){
+	  while ( getline(press_levels,line) ){
+	    if (it < 128){
+	      p_tgt_s(it) = log(std::stod(line));
+            }
+            it++;
+          }
+        }
+        press_levels.close();
+      }
+      else{
+	is_vertical_interp=false;
+      }
+
       // Check if the user wants to remap fields on a different grid first
       if (pl.isParameter("IO Grid Name")) {
         io_grid = grids_mgr->get_grid(pl.get<std::string>("IO Grid Name"));
@@ -76,6 +101,7 @@ AtmosphereOutput (const ekat::Comm& comm, const ekat::ParameterList& params,
     }
   }
 
+  
   // Try to set the IO grid (checks will be performed)
   set_grid (io_grid);
 
@@ -181,6 +207,14 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
     }
   }
 
+  //For vertical interpolation need to make sure we have p_mid
+  //Add check that p_mid is there
+  scream::Field::get_view_type<scream::Spack **, scream::Device, Kokkos::MemoryManaged> p_mid_view;
+  if (is_vertical_interp){
+    const auto p_mid = get_field("p_mid");
+    p_mid_view = p_mid.get_view<Spack**>();
+  }
+  
   // Take care of updating and possibly writing fields.
   for (auto const& name : m_fields_names) {
     // Get all the info for this field.
@@ -224,8 +258,22 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
         }
         case 2:
         {
-          auto new_view_2d = field.get_view<const Real**,Device>();
+          scream::Field::get_view_type<const scream::Real **, scream::Device, Kokkos::MemoryManaged> new_view_2d;
           auto avg_view_2d = view_Nd_dev<2>(data,dims[0],dims[1]);
+          if (is_vertical_interp){
+	    auto tmp_view_2d = field.get_view<Spack**>();
+            auto npacks_tgt = ekat::PackInfo<Spack::n>::num_packs(num_layers_tgt);
+            //need to get columns from field, replacing 866
+	    auto new_view_2d_spack = view_2d<Spack>("",866,npacks_tgt);
+            //need to get layers from field, replacing the 128
+	    perform_vertical_interpolation(p_mid_view, p_tgt, tmp_view_2d,
+					   new_view_2d_spack, 128, num_layers_tgt);
+            //auto new_view_2d = ekat::scalarize(new_view_2d_spack);
+	    new_view_2d = ekat::scalarize(new_view_2d_spack);
+	  }
+	  else{
+            new_view_2d = field.get_view<const Real**,Device>();
+	  }
           Kokkos::parallel_for(policy, KOKKOS_LAMBDA(int idx) {
             int i,j;
             unflatten_idx(idx,extents,i,j);
