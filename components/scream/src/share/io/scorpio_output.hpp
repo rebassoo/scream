@@ -197,8 +197,9 @@ protected:
 
   //Internal variables needed for vertical interpolation
   bool is_vertical_interp;
-  view_1d<Spack> p_tgt;
-  int num_layers_tgt = 128;
+  scream::vi::view_1d<scream::vi::Spack> p_tgt;
+  int num_layers_tgt;
+  int num_cols;
 };
 
 } //namespace scream

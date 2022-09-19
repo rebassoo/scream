@@ -9,6 +9,8 @@
 #include <numeric>
 #include <fstream>
 
+using namespace scream::vi;
+
 namespace scream
 {
 
@@ -42,6 +44,7 @@ AtmosphereOutput (const ekat::Comm& comm, const ekat::ParameterList& params,
                   const std::shared_ptr<const gm_type>& grids_mgr)
  : m_comm      (comm)
 {
+  //using namespace scream::vi;
   using vos_t = std::vector<std::string>;
 
   // Figure out what kind of averaging is requested
@@ -71,24 +74,48 @@ AtmosphereOutput (const ekat::Comm& comm, const ekat::ParameterList& params,
 
       //Put code here for vertical interpolation 
       if (pl.isParameter("IO vertical interpolation")){
+	std::cout<<"Able to call IO vertical interpolation ok"<<std::endl;
 	std::string filename = pl.get<std::string>("IO vertical interpolation");
 	is_vertical_interp = true;
-        auto npacks_tgt = ekat::PackInfo<Spack::n>::num_packs(num_layers_tgt);
-        p_tgt = view_1d<Spack>("",866,npacks_tgt);
-        auto p_tgt_s = Kokkos::create_mirror_view(ekat::scalarize(p_tgt));
+	//Need to get number of tgt levels, but how to do before I get
+	//the values from the file
+        //Need number of columns
+	//Need to get number of source levels
+        int num_levels = io_grid->get_num_vertical_levels();
+	int num_columns = io_grid->get_num_local_dofs();
+	std::cout<<"num_levels "<<num_levels<<std::endl;
+	std::cout<<"num_columns "<<num_columns<<std::endl;
+        //num_cols = num_columns;
 
+	std::vector<Real> press_levels; 
         std::string line;
-	std::ifstream press_levels (filename);
-	int it=0;
-	if (press_levels.is_open()){
-	  while ( getline(press_levels,line) ){
-	    if (it < 128){
-	      p_tgt_s(it) = log(std::stod(line));
-            }
-            it++;
+	std::ifstream press_src_f (filename);
+	//int it=0;
+	if (press_src_f.is_open()){
+	  while ( getline(press_src_f,line) ){
+            //Any issues here with conversion of double to to REAL
+            press_levels.push_back(100*std::stod(line));
           }
         }
-        press_levels.close();
+        press_src_f.close();
+	//Make checks to make sure that it is actually a number
+	//I.e. what will happen with an empty line at the end?
+        //num_layers_tgt = press_levels.size();
+	num_layers_tgt = 128;
+        auto npacks_tgt = ekat::PackInfo<Spack::n>::num_packs(num_layers_tgt);
+        p_tgt = view_1d<Spack>("",npacks_tgt);
+        auto p_tgt_s = Kokkos::create_mirror_view(ekat::scalarize(p_tgt));
+
+        Real last_p = 0;
+        for (int i=0; i<num_layers_tgt; i++){
+          if (press_levels[i] < last_p){
+            EKAT_ERROR_MSG ("Error! Pressure levels for vertical interpolation do no monotonically increase");
+	  }
+	  else{
+	    last_p = press_levels[i];
+	  }
+	  p_tgt_s(i) = press_levels[i];
+	}
       }
       else{
 	is_vertical_interp=false;
@@ -209,20 +236,26 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
 
   //For vertical interpolation need to make sure we have p_mid
   //Add check that p_mid is there
-  scream::Field::get_view_type<scream::Spack **, scream::Device, Kokkos::MemoryManaged> p_mid_view;
+  //scream::Field::get_view_type<scream::Spack **, scream::Device, Kokkos::MemoryManaged> p_mid_view;
+  scream::Field p_mid;
+  //std::cout<<"is_vertical_interp: "<<is_vertical_interp<<std::endl;
   if (is_vertical_interp){
-    const auto p_mid = get_field("p_mid");
-    p_mid_view = p_mid.get_view<Spack**>();
+    //const auto p_mid = get_field("p_mid");
+    p_mid = get_field("p_mid",true);
+    //p_mid_view = p_mid.get_view<Spack**>();
   }
   
+  std::cout<<"Get right before looping over fields: "<<std::endl;
   // Take care of updating and possibly writing fields.
   for (auto const& name : m_fields_names) {
     // Get all the info for this field.
+    //std::cout<<"name 1: "<<name<<std::endl;
     const auto  field = get_field(name,true); // If diagnostic, must evaluate it
     const auto& layout = m_layouts.at(name);
     const auto& dims = layout.dims();
     const auto  rank = layout.rank();
-
+    //std::cout<<"rank: "<<rank<<std::endl;
+    
     // Safety check: make sure that the field was written at least once before using it.
     EKAT_REQUIRE_MSG (field.get_header().get_tracking().get_time_stamp().is_valid(),
         "Error! Output field '" + name + "' has not been initialized yet\n.");
@@ -234,6 +267,8 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
         field.get_header().get_parent().expired() &&
         not is_diagnostic;
 
+    //std::cout<<"I get right after field view"<<std::endl;
+    
     // Manually update the 'running-tally' views with data from the field,
     // by combining new data with current avg values.
     // NOTE: this is skipped for instant output, if IO view is aliasing Field view.
@@ -242,10 +277,21 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
     KT::RangePolicy policy(0,layout.size());
     const auto extents = layout.extents();
 
+    if (name == "T_mid"){
+      std::cout<<"T_mid is_aliasing_field_view: "<<is_aliasing_field_view<<std::endl;
+    }
+    if (name == "qc"){
+      std::cout<<"qc is_aliasing_field_view: "<<is_aliasing_field_view<<std::endl;
+      std::cout<<"qc field.is_read_only(): "<<field.is_read_only()<<std::endl;
+    }
+
+    
     auto avg_type = m_avg_type;
     // If the dev_view_1d is aliasing the field device view (must be Instant output),
     // then there's no point in copying from the field's view to dev_view
+    //std::cout<<"I get right before cases"<<std::endl;
     if (not is_aliasing_field_view) {
+      //if (true) {
       switch (rank) {
         case 1:
         {
@@ -258,18 +304,42 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
         }
         case 2:
         {
+	  std::cout<<"Get into case 2"<<std::endl;
           scream::Field::get_view_type<const scream::Real **, scream::Device, Kokkos::MemoryManaged> new_view_2d;
           auto avg_view_2d = view_Nd_dev<2>(data,dims[0],dims[1]);
-          if (is_vertical_interp){
+          //auto new_view_2d = field.get_view<const Real**,Device>();
+	  //std::cout<<"field name: "<<field.get_header().get_identifier().name()<<std::endl;
+          if (is_vertical_interp && !field.is_read_only()){
+	      // &&   field.get_header().get_identifier().name() == "T_mid"){
+	    std::cout<<"get in vert: "<<std::endl;
 	    auto tmp_view_2d = field.get_view<Spack**>();
+	    std::cout<<"Get after tmp_view_2d spack"<<std::endl;
             auto npacks_tgt = ekat::PackInfo<Spack::n>::num_packs(num_layers_tgt);
             //need to get columns from field, replacing 866
-	    auto new_view_2d_spack = view_2d<Spack>("",866,npacks_tgt);
+	    //need to get column dimension from field
+	    //If field doesn't have 
+	    auto new_view_2d_spack = view_2d<Spack>("",866,
+						    npacks_tgt);
             //need to get layers from field, replacing the 128
-	    perform_vertical_interpolation(p_mid_view, p_tgt, tmp_view_2d,
+            auto p_mid_view = p_mid.get_view<Spack**>();
+            std::cout<<"name: "<<name<<std::endl;
+	    std::cout<<"p_mid_view.extent(1): "<<p_mid_view.extent(1)<<std::endl;
+   	    std::cout<<"tmp_view_2d.extent(1): "<<tmp_view_2d.extent(1)<<std::endl;
+            if (p_mid_view.extent(1) == tmp_view_2d.extent(1)){
+	      //std::cout<<"tmp_view_2d(0,127)"<<tmp_view_2d(0,127)<<std::endl;
+	      perform_vertical_interpolation(p_mid_view, p_tgt, tmp_view_2d,
 					   new_view_2d_spack, 128, num_layers_tgt);
-            //auto new_view_2d = ekat::scalarize(new_view_2d_spack);
-	    new_view_2d = ekat::scalarize(new_view_2d_spack);
+              //auto new_view_2d = ekat::scalarize(new_view_2d_spack);
+	      //Issue here that I am not scalarizing, but need 2d view
+	      std::cout<<"Get after interpolation"<<std::endl;
+	      new_view_2d = ekat::scalarize(new_view_2d_spack);
+    	      std::cout<<"Get after scalarize"<<std::endl;
+	      //std::cout<<"new_view_2d(0,127)"<<new_view_2d(0,127)<<std::endl;
+	    }
+	    else{
+              new_view_2d = field.get_view<const Real**,Device>();
+	      std::cout<<"Field can't be interpolated because extents don't match :"<<name<<std::endl;
+	    }
 	  }
 	  else{
             new_view_2d = field.get_view<const Real**,Device>();
@@ -279,10 +349,12 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
             unflatten_idx(idx,extents,i,j);
             combine(new_view_2d(i,j), avg_view_2d(i,j),avg_type);
           });
-          break;
+	  std::cout<<"Get after parallel and combine for 2D"<<std::endl;
+          break;	  
         }
         case 3:
         {
+	  std::cout<<"Get into case 3"<<std::endl;
           auto new_view_3d = field.get_view<const Real***,Device>();
           auto avg_view_3d = view_Nd_dev<3>(data,dims[0],dims[1],dims[2]);
           Kokkos::parallel_for(policy, KOKKOS_LAMBDA(int idx) {
