@@ -9,6 +9,8 @@
 
 namespace scream {
 
+namespace vi {
+  
 //
 // ------- Types --------
 //
@@ -71,6 +73,8 @@ void perform_vertical_interpolation (const view_1d<const Spack>&,
                                      const Real&,
       				     const LIV::MemberType&,
         			     const LIV&);
+
+} // namespace vi
   
 } // namespace scream
 

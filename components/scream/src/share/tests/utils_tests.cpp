@@ -12,7 +12,7 @@
 
 
 TEST_CASE("vertical_interpolation"){
-  using namespace scream;
+  using namespace scream::vi;
 
   using vos_type = std::vector<std::string>;
   ekat::ParameterList params_f;
@@ -87,7 +87,7 @@ TEST_CASE("vertical_interpolation"){
   }
   temp_levels.close();
 
-  scream::perform_vertical_interpolation(p_src,
+  scream::vi::perform_vertical_interpolation(p_src,
 					 p_tgt,
 					 tmp_src,
 					 out,

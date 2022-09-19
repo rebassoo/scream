@@ -2,6 +2,7 @@
 
 namespace scream {
 
+namespace vi {
   
 void perform_vertical_interpolation(const view_2d<const Spack>& x_src,
 				    const view_1d<const Spack>& x_tgt,
@@ -102,4 +103,6 @@ void perform_vertical_interpolation(const view_1d<const Spack>& x_src,
   Kokkos::fence();
 }
 
+} // namespace vi
+  
 } // namespace scream
