@@ -9,7 +9,7 @@
 #include <numeric>
 #include <fstream>
 
-using namespace scream::vi;
+using namespace scream::vinterp;
 
 namespace scream
 {
@@ -171,6 +171,7 @@ AtmosphereOutput (const ekat::Comm& comm, const ekat::ParameterList& params,
     set_field_manager(io_fm);
   }
 
+  std::cout<<"Get to end of Atmosphere output constructor"<<std::endl;
   // Setup I/O structures
   init ();
 }
@@ -234,6 +235,7 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
     }
   }
 
+  std::cout<<"Get right before getting p_mid"<<std::endl;
   //For vertical interpolation need to make sure we have p_mid
   //Add check that p_mid is there
   //scream::Field::get_view_type<scream::Spack **, scream::Device, Kokkos::MemoryManaged> p_mid_view;
@@ -332,7 +334,8 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
               //auto new_view_2d = ekat::scalarize(new_view_2d_spack);
 	      //Issue here that I am not scalarizing, but need 2d view
 	      //std::cout<<"Get after interpolation"<<std::endl;
-	      new_view_2d = ekat::scalarize(new_view_2d_spack);
+ 	      auto new_view_2d_spack_s = ekat::scalarize(new_view_2d_spack);
+              view_2d<const Real> new_view2d(new_view_2d_spack_s.data(),866,num_layers_tgt); 
     	      //std::cout<<"Get after scalarize"<<std::endl;
 	      std::cout<<"new_view_2d(0,127): "<<new_view_2d(0,127)<<std::endl;
 	    }

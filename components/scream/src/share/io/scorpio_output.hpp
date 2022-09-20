@@ -197,7 +197,7 @@ protected:
 
   //Internal variables needed for vertical interpolation
   bool is_vertical_interp;
-  scream::vi::view_1d<scream::vi::Spack> p_tgt;
+  scream::vinterp::view_1d<scream::vinterp::Spack> p_tgt;
   int num_layers_tgt;
   int num_cols;
 };
