@@ -481,7 +481,7 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
   std::vector<Int>     dims_2d = {num_lcols,num_levs};
 
   const std::string& gn = grid->name();
-
+  FieldIdentifier fid0("p_mid",FL{tag_2d,dims_2d},m,gn);
   FieldIdentifier fid1("field_1",FL{tag_h,dims_h},m,gn);
   FieldIdentifier fid2("field_2",FL{tag_v,dims_v},kg,gn);
   FieldIdentifier fid3("field_3",FL{tag_2d,dims_2d},kg/m,gn);
@@ -490,6 +490,7 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
   // Register fields with fm
   // Make sure packsize isn't bigger than the packsize for this machine, but not so big that we end up with only 1 pack.
   fm->registration_begins();
+  fm->register_field(FR{fid0,"output"});
   fm->register_field(FR{fid1,"output"});
   fm->register_field(FR{fid2,"output"});
   fm->register_field(FR{fid3,"output"});
@@ -504,10 +505,12 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
   }
 
   // Initialize these fields
+  auto f0 = fm->get_field(fid0);
   auto f1 = fm->get_field(fid1);
   auto f2 = fm->get_field(fid2);
   auto f3 = fm->get_field(fid3);
   auto f4 = fm->get_field(fid4);
+  auto f0_host = f0.get_view<Real**,Host>();
   auto f1_host = f1.get_view<Real*,Host>();
   auto f2_host = f2.get_view<Real*,Host>();
   auto f3_host = f3.get_view<Real**,Host>();
@@ -516,6 +519,7 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
   for (int ii=0;ii<num_lcols;++ii) {
     f1_host(ii) = generate_data_xy(0,ii,0);
     for (int jj=0;jj<num_levs;++jj) {
+      f0_host(ii,jj) = jj*10; 
       f2_host(jj) = generate_data_xy(0,0,jj);
       f3_host(ii,jj) = generate_data_xy(0,ii,jj);
       int ipack = jj / packsize;
@@ -527,6 +531,7 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
   util::TimeStamp time ({2000,1,1},{0,0,0});
   fm->init_fields_time_stamp(time);
   // Sync back to device
+  f0.sync_to_dev();
   f1.sync_to_dev();
   f2.sync_to_dev();
   f3.sync_to_dev();

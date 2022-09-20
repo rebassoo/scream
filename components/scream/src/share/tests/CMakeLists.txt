@@ -32,15 +32,4 @@ if (NOT ${SCREAM_BASELINES_ONLY})
                  ${CMAKE_CURRENT_BINARY_DIR}/atm_process_tests_named_procs.yaml COPYONLY)
   CreateUnitTest(atm_proc "atm_process_tests.cpp" scream_share)
 
-  #For vertical interpolation test
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/press_tgt_levels.txt
-                 ${CMAKE_CURRENT_BINARY_DIR}/press_tgt_levels.txt COPYONLY)
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/temp_src_ne4_866col_128lay.txt
-                 ${CMAKE_CURRENT_BINARY_DIR}/temp_src_ne4_866col_128lay.txt COPYONLY)
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/press_src_ne4_866col_128lay.txt
-                 ${CMAKE_CURRENT_BINARY_DIR}/press_src_ne4_866col_128lay.txt COPYONLY)
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/output_log_original.txt
-                 ${CMAKE_CURRENT_BINARY_DIR}/output_log_original.txt COPYONLY)
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/io_vertical_interpolation_test.yaml
-                 ${CMAKE_CURRENT_BINARY_DIR}/io_vertical_interpolation_test.yaml COPYONLY)
 endif()

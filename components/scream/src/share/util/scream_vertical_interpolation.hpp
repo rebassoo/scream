@@ -8,20 +8,14 @@
 #include "ekat/kokkos/ekat_subview_utils.hpp"
 
 namespace scream {
-
-namespace vi {
+namespace vinterp {
   
 //
 // ------- Types --------
 //
-
 template <typename S>
 using SmallPack = ekat::Pack<S,SCREAM_SMALL_PACK_SIZE>;
 using Spack = SmallPack<Real>;
-
-template <typename S>
-using SmallPack = ekat::Pack<S,SCREAM_SMALL_PACK_SIZE>;
-using Sbool = SmallPack<bool>;
 
 using Smask = ekat::Mask<Spack::n>;
 
@@ -29,53 +23,51 @@ using KT = KokkosTypes<DefaultDevice>;
 using ExeSpace = typename KT::ExeSpace;
 using ESU = ekat::ExeSpaceUtils<ExeSpace>;
 using LIV = ekat::LinInterp<Real,Spack::n>;
-
  
 template <typename S>
 using view_1d = typename KT::template view_1d<S>;
 template <typename S>
 using view_2d = typename KT::template view_2d<S>;
-
-const Real masked_val = -9.99e17;
+    
+const Real masked_val = -std::numeric_limits<Real>::max();
   
-void perform_vertical_interpolation (const view_2d<const Spack>&,
-				     const view_1d<const Spack>&,
-				     const view_2d<const Spack>&,
-				     const view_2d<      Spack>&,
-				     const int&,
-  				     const int&);
+void perform_vertical_interpolation (const view_2d<const Spack>& x_src,
+				     const view_1d<const Spack>& x_tgt,
+				     const view_2d<const Spack>& input,
+				     const view_2d<      Spack>& output,
+				     const int& nlevs_src,
+  				     const int& nlevs_tgt);
 
-void perform_vertical_interpolation (const view_2d<const Spack>&,
-				     const view_1d<const Spack>&,
-				     const view_2d<const Spack>&,
-				     const view_2d<      Spack>&,
-				     const view_2d<      Smask>&,
-				     const int&,
-  				     const int&);
+void perform_vertical_interpolation (const view_2d<const Spack>& x_src,
+				     const view_1d<const Spack>& x_tgt,
+				     const view_2d<const Spack>& input,
+				     const view_2d<      Spack>& output,
+				     const view_2d<      Smask>& mask,
+				     const int& nlevs_src,
+  				     const int& nlevs_tgt);
 
-void perform_vertical_interpolation (const view_2d<const Spack>&,
-				     const view_1d<const Spack>&,
-				     const view_2d<const Spack>&,
-				     const view_2d<      Spack>&,
-				     const view_2d<      Smask>&,
-				     const int&,
-  				     const int&,
-				     const Real&);
+void perform_vertical_interpolation (const view_2d<const Spack>& x_src,
+				     const view_1d<const Spack>& x_tgt,
+				     const view_2d<const Spack>& input,
+				     const view_2d<      Spack>& output,
+				     const view_2d<      Smask>& mask,
+				     const int& nlevs_src,
+  				     const int& nlevs_tgt,
+				     const Real& masked_val);
 
-void perform_vertical_interpolation (const view_1d<const Spack>&,
-				     const view_1d<const Spack>&,
-				     const view_1d<const Spack>&,
-				     const view_1d<      Spack>&,
-				     const view_1d<      Smask>&,
-				     const int&,
-  				     const int&,
-    				     const int&,
-                                     const Real&,
-      				     const LIV::MemberType&,
-        			     const LIV&);
+void perform_vertical_interpolation (const view_1d<const Spack>& x_src,
+				     const view_1d<const Spack>& x_tgt,
+				     const view_1d<const Spack>& input,
+				     const view_1d<      Spack>& output,
+				     const view_1d<      Smask>& mask,
+				     const int& nlevs_src,
+  				     const int& nlevs_tgt,
+    				     const int& icol,
+                                     const Real& masked_val,
+      				     const LIV::MemberType& team,
+        			     const LIV& vert_interp);
 
-} // namespace vi
-  
+} // namespace vinterp
 } // namespace scream
 
 #endif // SCREAM_VERTICAL_INTERPOLATION_HPP
