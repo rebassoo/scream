@@ -318,23 +318,23 @@ void AtmosphereOutput::run (const std::string& filename, const bool is_write_ste
             //need to get columns from field, replacing 866
 	    //need to get column dimension from field
 	    //If field doesn't have 
-	    auto new_view_2d_spack = view_2d<Spack>("",866,
-						    npacks_tgt);
+	    auto new_view_2d_spack = view_2d<Spack>("",866,npacks_tgt);
             //need to get layers from field, replacing the 128
             auto p_mid_view = p_mid.get_view<Spack**>();
             std::cout<<"name: "<<name<<std::endl;
 	    std::cout<<"p_mid_view.extent(1): "<<p_mid_view.extent(1)<<std::endl;
    	    std::cout<<"tmp_view_2d.extent(1): "<<tmp_view_2d.extent(1)<<std::endl;
-            if (p_mid_view.extent(1) == tmp_view_2d.extent(1)){
-	      //std::cout<<"tmp_view_2d(0,127)"<<tmp_view_2d(0,127)<<std::endl;
+            if (p_mid_view.extent(1) == tmp_view_2d.extent(1) && name == "qc"){
+              auto tmp_view_2d_s = ekat::scalarize(tmp_view_2d);
+	      std::cout<<"tmp_view_2d(0,127): "<<tmp_view_2d_s(0,127)<<std::endl;
 	      perform_vertical_interpolation(p_mid_view, p_tgt, tmp_view_2d,
 					   new_view_2d_spack, 128, num_layers_tgt);
               //auto new_view_2d = ekat::scalarize(new_view_2d_spack);
 	      //Issue here that I am not scalarizing, but need 2d view
-	      std::cout<<"Get after interpolation"<<std::endl;
+	      //std::cout<<"Get after interpolation"<<std::endl;
 	      new_view_2d = ekat::scalarize(new_view_2d_spack);
-    	      std::cout<<"Get after scalarize"<<std::endl;
-	      //std::cout<<"new_view_2d(0,127)"<<new_view_2d(0,127)<<std::endl;
+    	      //std::cout<<"Get after scalarize"<<std::endl;
+	      std::cout<<"new_view_2d(0,127): "<<new_view_2d(0,127)<<std::endl;
 	    }
 	    else{
               new_view_2d = field.get_view<const Real**,Device>();
